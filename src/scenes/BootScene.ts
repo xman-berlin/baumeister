@@ -1,5 +1,23 @@
 import * as Phaser from 'phaser';
 
+const TILE_SIZE = 16;
+const TILE_COLS = 12;
+
+function frameAt(col: number, row: number): number {
+  return row * TILE_COLS + col;
+}
+
+const FRAMES = {
+  grass: frameAt(1, 0),
+  road: frameAt(3, 1),
+  house: frameAt(4, 3),
+  sawmill: frameAt(0, 4),
+  quarry: frameAt(2, 4),
+  market: frameAt(4, 4),
+  park: frameAt(0, 2),
+  npc: frameAt(0, 9),
+};
+
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super({ key: 'BootScene' });
@@ -31,58 +49,54 @@ export default class BootScene extends Phaser.Scene {
       loadingText.destroy();
     });
 
-    // Placeholder: generate simple colored textures
-    this.generatePlaceholderTextures();
-  }
-
-  private generatePlaceholderTextures(): void {
-    const gfx = this.make.graphics({});
-    const ts = 64;
-
-    gfx.fillStyle(0x4caf50, 1);
-    gfx.fillRect(0, 0, ts, ts);
-    gfx.generateTexture('grass', ts, ts);
-    gfx.clear();
-
-    gfx.fillStyle(0x795548, 1);
-    gfx.fillRect(8, 8, ts - 16, ts - 16);
-    gfx.generateTexture('house', ts, ts);
-    gfx.clear();
-
-    gfx.fillStyle(0x9e9e9e, 1);
-    gfx.fillRect(4, 28, ts - 8, 8);
-    gfx.generateTexture('road', ts, ts);
-    gfx.clear();
-
-    gfx.fillStyle(0xffa726, 1);
-    gfx.fillRect(0, 0, ts * 2, ts * 2);
-    gfx.generateTexture('sawmill', ts * 2, ts * 2);
-    gfx.clear();
-
-    gfx.fillStyle(0x757575, 1);
-    gfx.fillRect(0, 0, ts * 2, ts * 2);
-    gfx.generateTexture('quarry', ts * 2, ts * 2);
-    gfx.clear();
-
-    gfx.fillStyle(0x2196f3, 1);
-    gfx.fillRect(0, 0, ts * 2, ts * 2);
-    gfx.generateTexture('market', ts * 2, ts * 2);
-    gfx.clear();
-
-    gfx.fillStyle(0x66bb6a, 1);
-    gfx.fillRect(16, 16, ts - 32, ts - 32);
-    gfx.generateTexture('park', ts, ts);
-    gfx.clear();
-
-    gfx.fillStyle(0xfdd835, 1);
-    gfx.fillCircle(ts / 2, ts / 2, ts / 3);
-    gfx.generateTexture('npc', ts, ts);
-    gfx.clear();
-
-    gfx.destroy();
+    this.load.spritesheet('tilemap', 'assets/tiles/tilemap.png', {
+      frameWidth: TILE_SIZE,
+      frameHeight: TILE_SIZE,
+      margin: 0,
+      spacing: 1,
+    });
   }
 
   create(): void {
+    const sheet = this.textures.get('tilemap');
+    sheet.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    const gfx = this.make.graphics({});
+    const scale = 4;
+
+    for (const [key, frame] of Object.entries(FRAMES)) {
+      gfx.clear();
+      const size = key === 'sawmill' || key === 'quarry' || key === 'market' ? TILE_SIZE * 2 : TILE_SIZE;
+      const outputSize = size * scale;
+
+      for (let dy = 0; dy < (size / TILE_SIZE); dy++) {
+        for (let dx = 0; dx < (size / TILE_SIZE); dx++) {
+          const f = frame + dx + dy * TILE_COLS;
+          const frameData = sheet.get(f);
+          if (!frameData) continue;
+
+          const srcX = (frameData as Phaser.Textures.Frame).cutX;
+          const srcY = (frameData as Phaser.Textures.Frame).cutY;
+
+          gfx.save();
+          for (let py = 0; py < TILE_SIZE; py++) {
+            for (let px = 0; px < TILE_SIZE; px++) {
+              const color = this.textures.getPixel(srcX + px, srcY + py, 'tilemap');
+              if (color && color.alpha > 0) {
+                gfx.fillStyle(color.color, color.alpha / 255);
+                gfx.fillRect(dx * TILE_SIZE * scale + px * scale, dy * TILE_SIZE * scale + py * scale, scale, scale);
+              }
+            }
+          }
+          gfx.restore();
+        }
+      }
+
+      gfx.generateTexture(key, outputSize, outputSize);
+    }
+
+    gfx.destroy();
+
     this.scene.start('MenuScene');
   }
 }
